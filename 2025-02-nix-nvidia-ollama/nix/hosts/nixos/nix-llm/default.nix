@@ -17,16 +17,26 @@
   systemd.services.docker = {
     after = [ "network.target" "containerd.service" ];
 
+    # This environment variable forces Docker to look in our custom directory
+    environment = {
+      CDI_SPEC_DIRS = "/etc/cdi";
+    };
+
     serviceConfig = {
       ExecStartPre = [
-        # 1. Wait for GPU
         "+/run/current-system/sw/bin/bash -c 'until /run/current-system/sw/bin/nvidia-smi; do sleep 1; done'"
 
-        # 2. Generate the file
-        "+/run/current-system/sw/bin/mkdir -p /var/run/cdi"
-        "+/run/current-system/sw/bin/nvidia-ctk cdi generate --output=/var/run/cdi/nvidia-container-toolkit.json"
+        # 1. Ensure the directory exists
+        "+/run/current-system/sw/bin/mkdir -p /etc/cdi"
 
-        # 3. CRITICAL: Force the OS to flush the write to the disk/RAM
+        # 2. Generate the spec with JSON format explicitly defined
+        # We use /etc/cdi/nvidia.json as a stable, persistent home.
+        "+/run/current-system/sw/bin/nvidia-ctk cdi generate --format=json --output=/etc/cdi/nvidia.json"
+
+        # 3. Create the symlink to the location we know Docker straced, just for double coverage
+        "+/run/current-system/sw/bin/mkdir -p /var/run/cdi"
+        "+/run/current-system/sw/bin/ln -sf /etc/cdi/nvidia.json /var/run/cdi/nvidia-container-toolkit.json"
+
         "+/run/current-system/sw/bin/sync"
         "+/run/current-system/sw/bin/sleep 2"
       ];
