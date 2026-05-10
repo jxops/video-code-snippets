@@ -22,17 +22,21 @@
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
       Type = "oneshot";
-      # This is your hard work, just moved to a safer spot
       ExecStart = pkgs.writeShellScript "docker-nvidia-init" ''
-        # Give the kernel time to register /dev/nvidia0
+        # 1. Hard sleep to let the kernel finish driver registration
+        sleep 30
+
+        # 2. Aggressive wait for the device node
         for i in {1..30}; do
           if [ -e /dev/nvidia0 ]; then break; fi
+          echo "Waiting for /dev/nvidia0..."
           sleep 1
         done
 
-        # Ensure persistence so the driver stays 'awake'
+        # 3. Force persistence (crucial for RTX 4000 SFF)
         ${pkgs.linuxPackages.nvidia_x11.bin}/bin/nvidia-smi -pm 1 || true
 
+        # 4. Final CDI Generation
         mkdir -p /etc/cdi
         rm -f /etc/cdi/*
         ${pkgs.nvidia-container-toolkit}/bin/nvidia-ctk cdi generate \
