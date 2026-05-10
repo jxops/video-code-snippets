@@ -15,7 +15,7 @@ services:
               capabilities:
                 - gpu
               device_ids:
-                - nvidia.com/gpu=all
+                - nvidia.com/gpu=GPU-ee062a69-dc48-e6c6-a2b9-464b40db6284
     networks:
       - ai-stack
     restart: always
