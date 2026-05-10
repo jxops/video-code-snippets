@@ -17,22 +17,27 @@
   systemd.services.docker = {
     after = [ "network.target" "containerd.service" ];
 
+    # Force Docker to look specifically at our generated map
     environment = {
       CDI_SPEC_DIRS = "/etc/cdi";
     };
 
     serviceConfig = {
       ExecStartPre = [
+        # Wait for NVIDIA hardware to initialize
         "+/run/current-system/sw/bin/bash -c 'until /run/current-system/sw/bin/nvidia-smi; do sleep 1; done'"
+
+        # Ensure the directory exists
         "+/run/current-system/sw/bin/mkdir -p /etc/cdi"
 
-        # We explicitly tell the generator where the 'nvidia-ctk' binary is in the Nix store.
-        # This replaces the broken '/usr/bin/nvidia-ctk' paths in the JSON.
+        # Generate the CDI spec using the REAL Nix store path for the toolkit
+        # This replaces the broken /usr/bin paths with the working /nix/store paths
         "+/run/current-system/sw/bin/bash -c '/run/current-system/sw/bin/nvidia-ctk cdi generate \
           --format=json \
           --nvidia-ctk-path=$(readlink -f /run/current-system/sw/bin/nvidia-ctk) \
           --output=/etc/cdi/nvidia.json'"
 
+        # Force the filesystem to settle
         "+/run/current-system/sw/bin/sync"
       ];
     };
