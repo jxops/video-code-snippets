@@ -14,34 +14,51 @@
     efi.canTouchEfiVariables = true;
   };
 
-  # 1. Disable the socket to prevent "trigger-happy" starts
+  # --- 1. PROMOTED PREP SERVICE ---
+  # We move your initScript here so it finishes BEFORE Docker even tries to load
+  systemd.services.nvidia-cdi-init = {
+    description = "Wait for GPU and generate CDI spec";
+    before = [ "docker.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      # This is your hard work, just moved to a safer spot
+      ExecStart = pkgs.writeShellScript "docker-nvidia-init" ''
+        # Give the kernel time to register /dev/nvidia0
+        for i in {1..30}; do
+          if [ -e /dev/nvidia0 ]; then break; fi
+          sleep 1
+        done
+
+        # Ensure persistence so the driver stays 'awake'
+        ${pkgs.linuxPackages.nvidia_x11.bin}/bin/nvidia-smi -pm 1 || true
+
+        mkdir -p /etc/cdi
+        rm -f /etc/cdi/*
+        ${pkgs.nvidia-container-toolkit}/bin/nvidia-ctk cdi generate \
+          --format=json \
+          --nvidia-ctk-path=${pkgs.nvidia-container-toolkit}/bin/nvidia-ctk \
+          --output=/etc/cdi/nvidia.json
+      '';
+    };
+  };
+
+  # --- 2. CLEANER DOCKER CONFIG ---
   virtualisation.docker.enable = true;
-  virtualisation.docker.listenOptions = []; # This helps disable socket activation quirks
+  virtualisation.docker.listenOptions = [];
 
   systemd.services.docker = {
-    after = [ "network-online.target" "nvidia-persistenced.service" ];
-    wants = [ "network-online.target" "nvidia-persistenced.service" ];
+    # Now Docker just waits for our Prep service to finish
+    after = [ "network-online.target" "nvidia-cdi-init.service" ];
+    requires = [ "nvidia-cdi-init.service" ];
 
     serviceConfig = {
-      # Give the kernel 10 extra seconds to finish driver registration
-      ExecStartPre = let
-        initScript = pkgs.writeShellScript "docker-nvidia-init" ''
-          sleep 10
-          mkdir -p /etc/cdi
-          rm -f /etc/cdi/*
-          ${pkgs.nvidia-container-toolkit}/bin/nvidia-ctk cdi generate \
-            --format=json \
-            --nvidia-ctk-path=${pkgs.nvidia-container-toolkit}/bin/nvidia-ctk \
-            --output=/etc/cdi/nvidia.json || true
-        '';
-      in [ "+${initScript}" ];
-
-      # If the container fails (Exit 128), systemd will restart the daemon itself
+      # Keep your safety net
       Restart = "on-failure";
       RestartSec = "10s";
     };
   };
- 
+
   # Network configuration
   networking = {
     firewall.enable = false;
