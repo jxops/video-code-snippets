@@ -3,11 +3,17 @@ services:
   ollama:
     image: ollama/ollama
     container_name: ollama
+    entrypoint: ["/bin/sh", "-c", "sleep 30 && /bin/ollama serve"]
     volumes:
       - "/opt/appdata/apps/ollama:/root/.ollama"
     ports:
       - 11434:11434
     deploy:
+      # restart_policy:
+      #         condition: on-failure
+      #         delay: 5s
+      #         max_attempts: 10
+      #         window: 120s
       resources:
         reservations:
           devices:
@@ -16,7 +22,10 @@ services:
                 - gpu
               device_ids:
                 - nvidia.com/gpu=all
-    restart: unless-stopped
+    networks:
+      - ai-stack
+    restart: always
+
   openwebui:
     image: ghcr.io/open-webui/open-webui:main
     container_name: openwebui
@@ -27,7 +36,10 @@ services:
       - "/opt/appdata/openwebui/data:/app/backend/data"
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
-    restart: unless-stopped
+    networks:
+      - ai-stack
+    restart: always
+
   # ts-openwebui:
   #   image: ghcr.io/tailscale/tailscale:latest
   #   container_name: ts-beszel-hub
@@ -42,3 +54,7 @@ services:
   #     - /opt/appdata/openwebui/tailscale/state:/var/lib/tailscale
   #     - /opt/appdata/openwebui/tailscale/config:/config
   #   restart: unless-stopped
+
+networks:
+  ai-stack:
+    driver: bridge
