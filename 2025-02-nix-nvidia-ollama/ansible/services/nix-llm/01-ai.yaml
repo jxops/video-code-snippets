@@ -20,7 +20,7 @@ services:
                 - nvidia.com/gpu=all
     networks:
       - ai-stack
-    restart: always
+    restart: unless-stopped
     command: serve
     environment:
       - OLLAMA_HOST=0.0.0.0

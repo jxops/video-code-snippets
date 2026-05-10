@@ -50,6 +50,7 @@
   # --- 2. CLEANER DOCKER CONFIG ---
   virtualisation.docker.enable = true;
   virtualisation.docker.listenOptions = [];
+  virtualisation.docker.liveRestore = false; # This stops Docker from keeping containers alive during its own restarts
 
   systemd.services.docker = {
     # Now Docker just waits for our Prep service to finish
@@ -60,6 +61,22 @@
       # Keep your safety net
       Restart = "on-failure";
       RestartSec = "10s";
+    };
+  };
+
+  # 3. Create a dedicated Systemd service for the AI Stack
+  systemd.services.ai-stack-auto = {
+    description = "Start AI Stack after GPU is confirmed ready";
+    after = [ "docker.service" "nvidia-cdi-init.service" ];
+    requires = [ "docker.service" "nvidia-cdi-init.service" ];
+    wantedBy = [ "multi-user.target" ];
+
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      # Hard-reset the containers on every boot to clear 'Exit 128' state
+      ExecStart = "${pkgs.docker-compose}/bin/docker-compose -f /root/video-code-snippets/2025-02-nix-nvidia-ollama/nix/compose.yaml up -d";
+      ExecStop = "${pkgs.docker-compose}/bin/docker-compose -f /root/video-code-snippets/2025-02-nix-nvidia-ollama/nix/compose.yaml down";
     };
   };
 
