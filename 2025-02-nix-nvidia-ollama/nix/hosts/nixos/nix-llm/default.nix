@@ -50,7 +50,7 @@
   systemd.services.docker = {
     # Now Docker just waits for our Prep service to finish
     after = [ "network-online.target" "nvidia-cdi-init.service" ];
-    requires = [ "nvidia-cdi-init.service" ];
+    requires = [ "nvidia-cdi-init.service" "network-online.target" ];
 
     serviceConfig = {
       # Keep your safety net
