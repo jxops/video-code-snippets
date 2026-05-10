@@ -16,18 +16,23 @@
 
   systemd.services.docker = {
     after = [ "network.target" "containerd.service" ];
-    # Remove the 'wants' for now to prevent circular dependencies
-
-    environment = {
-      CDI_SPEC_DIRS = "/etc/cdi";
-    };
-
     serviceConfig = {
       ExecStartPre = let
         initScript = pkgs.writeShellScript "docker-nvidia-init" ''
+          # 1. Wait for the NVIDIA device node to actually appear in /dev
+          # This is the key change for cold boots!
+          count=0
+          while [ ! -e /dev/nvidia0 ] && [ $count -lt 30 ]; do
+            echo "Waiting for /dev/nvidia0..."
+            sleep 1
+            count=$((count + 1))
+          done
+
+          # 2. Setup CDI
           ${pkgs.coreutils}/bin/mkdir -p /etc/cdi
           ${pkgs.coreutils}/bin/rm -f /etc/cdi/*
-          # No loop! Just try to generate once.
+
+          # 3. Generate the spec
           ${pkgs.nvidia-container-toolkit}/bin/nvidia-ctk cdi generate \
             --format=json \
             --nvidia-ctk-path=${pkgs.nvidia-container-toolkit}/bin/nvidia-ctk \
