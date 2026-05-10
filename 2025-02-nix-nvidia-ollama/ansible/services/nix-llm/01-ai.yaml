@@ -29,6 +29,14 @@ services:
     command: serve
     environment:
       - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_KEEP_ALIVE=-1
+    # Add a formal healthcheck so the stack knows when it's ACTUALLY ready
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
 
   openwebui:
     image: ghcr.io/open-webui/open-webui:main
