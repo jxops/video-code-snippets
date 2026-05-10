@@ -30,6 +30,7 @@
         "+/run/current-system/sw/bin/sleep 5"
       ];
     };
+  };
 
   virtualisation.docker.enable = true;
 
