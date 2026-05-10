@@ -18,14 +18,13 @@
     after = [ "network.target" "containerd.service" ];
     wants = [ "nvidia-container-toolkit.service" ];
 
-    serviceConfig = {
+  serviceConfig = {
       ExecStartPre = [
-        # 1. Wait for the device node
+        # 1. Wait for the hardware device file
         "+${pkgs.bash}/bin/bash -c 'while [ ! -e /dev/nvidia0 ]; do sleep 1; done'"
-        # 2. Wait for nvidia-smi to successfully talk to the GPU
-        # This ensures the driver is fully initialized and out of a 'busy' state
-        "+${pkgs.bash}/bin/bash -c 'until ${config.boot.kernelPackages.nvidiaPackages.stable}/bin/nvidia-smi; do sleep 1; done'"
-        # 3. Final buffer for CDI file generation
+        # 2. Use the system's verified nvidia-smi path
+        "+${pkgs.bash}/bin/bash -c 'until /run/current-system/sw/bin/nvidia-smi; do sleep 1; done'"
+        # 3. Final buffer
         "+${pkgs.coreutils}/bin/sleep 5"
       ];
     };
