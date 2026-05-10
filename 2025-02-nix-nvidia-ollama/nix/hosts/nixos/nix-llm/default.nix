@@ -15,30 +15,30 @@
   };
 
   systemd.services.docker = {
+    # Ensure NVIDIA drivers are loaded before Docker tries to find them
     after = [ "network.target" "containerd.service" ];
+    wants = [ "network-online.target" ];
 
-    # Force Docker to look specifically at our generated map
     environment = {
+      # Tell Docker exactly where to look for our GPU map
       CDI_SPEC_DIRS = "/etc/cdi";
     };
 
     serviceConfig = {
+      # The '+' prefix runs these as root with full capabilities
       ExecStartPre = [
-        # Wait for NVIDIA hardware to initialize
+        # 1. Wait for the NVIDIA device nodes to actually appear in /dev
         "+/run/current-system/sw/bin/bash -c 'until /run/current-system/sw/bin/nvidia-smi; do sleep 1; done'"
 
-        # Ensure the directory exists
+        # 2. Clean out the directory to prevent the "conflicting device" error we saw earlier
         "+/run/current-system/sw/bin/mkdir -p /etc/cdi"
+        "+/run/current-system/sw/bin/bash -c 'rm -f /etc/cdi/*'"
 
-        # Generate the CDI spec using the REAL Nix store path for the toolkit
-        # This replaces the broken /usr/bin paths with the working /nix/store paths
-        "+/run/current-system/sw/bin/bash -c '/run/current-system/sw/bin/nvidia-ctk cdi generate \
+        # 3. Generate the fresh CDI spec with the absolute Nix store path
+        "+/run/current-system/sw/bin/bash -c \"/run/current-system/sw/bin/nvidia-ctk cdi generate \
           --format=json \
           --nvidia-ctk-path=$(readlink -f /run/current-system/sw/bin/nvidia-ctk) \
-          --output=/etc/cdi/nvidia.json'"
-
-        # Force the filesystem to settle
-        "+/run/current-system/sw/bin/sync"
+          --output=/etc/cdi/nvidia.json\""
       ];
     };
   };
