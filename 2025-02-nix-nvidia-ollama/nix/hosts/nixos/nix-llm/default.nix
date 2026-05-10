@@ -19,38 +19,29 @@
   virtualisation.docker.listenOptions = []; # This helps disable socket activation quirks
 
   systemd.services.docker = {
-    # 2. Make Docker wait for the hardware and the specialized init script
-    after = [ "network.target" "containerd.service" "nvidia-persistenced.service" ];
-    wants = [ "nvidia-persistenced.service" ];
+    after = [ "network-online.target" "nvidia-persistenced.service" ];
+    wants = [ "network-online.target" "nvidia-persistenced.service" ];
 
     serviceConfig = {
-      # 3. Increase the Start Limit - if it fails, try again automatically
-      StartLimitIntervalSec = 60;
-      StartLimitBurst = 3;
-      Restart = "on-failure";
-      RestartSec = "5s";
-
+      # Give the kernel 10 extra seconds to finish driver registration
       ExecStartPre = let
         initScript = pkgs.writeShellScript "docker-nvidia-init" ''
-          # Wait longer and more aggressively for the GPU
-          for i in {1..30}; do
-            if [ -e /dev/nvidia0 ]; then break; fi
-            echo "Waiting for GPU... $i"
-            sleep 1
-          done
-
-          # Clean and Generate
+          sleep 10
           mkdir -p /etc/cdi
           rm -f /etc/cdi/*
           ${pkgs.nvidia-container-toolkit}/bin/nvidia-ctk cdi generate \
             --format=json \
             --nvidia-ctk-path=${pkgs.nvidia-container-toolkit}/bin/nvidia-ctk \
-            --output=/etc/cdi/nvidia.json
+            --output=/etc/cdi/nvidia.json || true
         '';
       in [ "+${initScript}" ];
+
+      # If the container fails (Exit 128), systemd will restart the daemon itself
+      Restart = "on-failure";
+      RestartSec = "10s";
     };
   };
-
+ 
   # Network configuration
   networking = {
     firewall.enable = false;
