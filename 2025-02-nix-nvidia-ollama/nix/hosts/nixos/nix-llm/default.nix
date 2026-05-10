@@ -16,26 +16,29 @@
 
   systemd.services.docker = {
     after = [ "network.target" "containerd.service" ];
+    # Remove the 'wants' for now to prevent circular dependencies
+
     environment = {
       CDI_SPEC_DIRS = "/etc/cdi";
     };
+
     serviceConfig = {
       ExecStartPre = let
-        # Create a tiny script to handle the generation safely
         initScript = pkgs.writeShellScript "docker-nvidia-init" ''
-          # Wait for GPU
-          until ${pkgs.nvtopPackages.full}/bin/nvidia-smi; do sleep 1; done
+          # Create directory
+          ${pkgs.coreutils}/bin/mkdir -p /etc/cdi
 
-          # Clean and Generate
-          mkdir -p /etc/cdi
-          rm -f /etc/cdi/*
+          # Clean old specs
+          ${pkgs.coreutils}/bin/rm -f /etc/cdi/*
+
+          # Attempt to generate.
+          # We don't loop; if it fails, Docker will log the error and we can debug.
           ${pkgs.nvidia-container-toolkit}/bin/nvidia-ctk cdi generate \
             --format=json \
             --nvidia-ctk-path=${pkgs.nvidia-container-toolkit}/bin/nvidia-ctk \
-            --output=/etc/cdi/nvidia.json
+            --output=/etc/cdi/nvidia.json || true
         '';
       in [
-        # The '+' runs this as root
         "+${initScript}"
       ];
     };
