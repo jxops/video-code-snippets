@@ -15,23 +15,27 @@
   };
 
   systemd.services.docker = {
-    # Ensure Docker waits for the toolkit and the nvidia driver units
     after = [
       "network.target"
       "containerd.service"
       "nvidia-container-toolkit.service"
-      "nvidia-util.service"
     ];
     wants = [ "nvidia-container-toolkit.service" ];
 
     serviceConfig = {
       ExecStartPre = [
-        # 1. Wait for hardware device
-        "+/run/current-system/sw/bin/bash -c 'while [ ! -e /dev/nvidia0 ]; do sleep 1; done'"
-        # 2. Wait for driver response
+        # 1. Wait for the driver to be alive
         "+/run/current-system/sw/bin/bash -c 'until /run/current-system/sw/bin/nvidia-smi; do sleep 1; done'"
-        # 3. A generous 10-second buffer to let the CDI generation finish
-        "+/run/current-system/sw/bin/sleep 10"
+
+        # 2. Force the exact JSON generation your system expects
+        "+/run/current-system/sw/bin/mkdir -p /var/run/cdi"
+        "+/run/current-system/sw/bin/nvidia-ctk cdi generate --output=/var/run/cdi/nvidia-container-toolkit.json"
+
+        # 3. Double-check for the YAML variant just in case Docker looks for both
+        "+/run/current-system/sw/bin/nvidia-ctk cdi generate --output=/var/run/cdi/nvidia.yaml"
+
+        # 4. Final settling time
+        "+/run/current-system/sw/bin/sleep 5"
       ];
     };
   };
