@@ -14,19 +14,23 @@
     efi.canTouchEfiVariables = true;
   };
 
-  # Override the Docker service unit to prevent the "Exit 137" race condition
+# MODIFIED: Let's make the dependency more robust
   systemd.services.docker = {
-    # Ensure NVIDIA drivers and containerd are up before Docker starts
-    after = [ "nvidia-util.service" "containerd.service" ];
-    requires = [ "nvidia-util.service" ];
+    # If nvidia-util.service is missing, we use the more generic nvidia-control-devices
+    after = [ "network.target" "containerd.service" ];
+    # Only require the toolkit if it exists, otherwise use a generic check
+    wants = [ "nvidia-container-toolkit.service" ];
 
     serviceConfig = {
-      # A 5-second buffer to ensure the CDI JSON files are actually written to disk
-      ExecStartPre = "${pkgs.coreutils}/bin/sleep 5";
-    };
+        ExecStartPre = [
+            "+${pkgs.coreutils}/bin/sleep 5"
+            "+${pkgs.bash}/bin/bash -c 'while [ ! -e /dev/nvidia0 ]; do sleep 1; done'"
+            ];
+        };
   };
 
   virtualisation.docker.enable = true;
+
   # Network configuration
   networking = {
     firewall.enable = false;
@@ -76,6 +80,10 @@
     ];
   };
 
+  environment.systemPackages = with pkgs; [
+    nvidia-container-toolkit
+  ];
+
   # Hardware configuration
   hardware = {
     graphics = {
@@ -87,6 +95,9 @@
       open = false;
       nvidiaSettings = true;
       powerManagement.enable = true;
+      # Enabling persistence mode often helps trigger the util services
+      persistenceMode.enable = true;
+      package = config.boot.kernelPackages.nvidiaPackages.stable;
     };
     nvidia-container-toolkit.enable = true;
   };
