@@ -8,6 +8,11 @@ services:
     ports:
       - 11434:11434
     deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 60s
       resources:
         reservations:
           devices:
