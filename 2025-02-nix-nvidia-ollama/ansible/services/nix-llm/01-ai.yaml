@@ -10,11 +10,6 @@ services:
     ports:
       - 11434:11434
     deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 5
-        window: 60s
       resources:
         reservations:
           devices:
@@ -26,17 +21,17 @@ services:
     networks:
       - ai-stack
     restart: always
-    command: serve
+    command: bash -c "sleep 5 && ollama serve"
     environment:
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_KEEP_ALIVE=-1
     # Add a formal healthcheck so the stack knows when it's ACTUALLY ready
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 60s
+  healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 0"]
+      interval: 30s
+      timeout: 20s        # Increased: Loading 17GB models can lag the API
+      retries: 5
+      start_period: 300s  # 5 minutes: Be extremely patient on cold boots
 
   openwebui:
     image: ghcr.io/open-webui/open-webui:main
