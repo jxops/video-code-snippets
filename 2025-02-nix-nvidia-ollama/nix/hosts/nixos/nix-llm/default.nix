@@ -25,22 +25,15 @@
     serviceConfig = {
       ExecStartPre = let
         initScript = pkgs.writeShellScript "docker-nvidia-init" ''
-          # Create directory
           ${pkgs.coreutils}/bin/mkdir -p /etc/cdi
-
-          # Clean old specs
           ${pkgs.coreutils}/bin/rm -f /etc/cdi/*
-
-          # Attempt to generate.
-          # We don't loop; if it fails, Docker will log the error and we can debug.
+          # No loop! Just try to generate once.
           ${pkgs.nvidia-container-toolkit}/bin/nvidia-ctk cdi generate \
             --format=json \
             --nvidia-ctk-path=${pkgs.nvidia-container-toolkit}/bin/nvidia-ctk \
             --output=/etc/cdi/nvidia.json || true
         '';
-      in [
-        "+${initScript}"
-      ];
+      in [ "+${initScript}" ];
     };
   };
 
