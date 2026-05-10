@@ -95,8 +95,6 @@
       open = false;
       nvidiaSettings = true;
       powerManagement.enable = true;
-      # Enabling persistence mode often helps trigger the util services
-      persistenceMode.enable = true;
       package = config.boot.kernelPackages.nvidiaPackages.stable;
     };
     nvidia-container-toolkit.enable = true;
