@@ -14,6 +14,19 @@
     efi.canTouchEfiVariables = true;
   };
 
+  # Override the Docker service unit to prevent the "Exit 137" race condition
+  systemd.services.docker = {
+    # Ensure NVIDIA drivers and containerd are up before Docker starts
+    after = [ "nvidia-util.service" "containerd.service" ];
+    requires = [ "nvidia-util.service" ];
+
+    serviceConfig = {
+      # A 5-second buffer to ensure the CDI JSON files are actually written to disk
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 5";
+    };
+  };
+
+  virtualisation.docker.enable = true;
   # Network configuration
   networking = {
     firewall.enable = false;
