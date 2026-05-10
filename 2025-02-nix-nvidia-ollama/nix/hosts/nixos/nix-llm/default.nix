@@ -15,16 +15,20 @@
   };
 
   systemd.services.docker = {
-    # Remove the 'requires' line that killed the daemon
     after = [ "network.target" "containerd.service" ];
 
     serviceConfig = {
       ExecStartPre = [
-        # Just wait for the driver and generate the map where we know it works
+        # 1. Wait for GPU
         "+/run/current-system/sw/bin/bash -c 'until /run/current-system/sw/bin/nvidia-smi; do sleep 1; done'"
+
+        # 2. Generate the file
         "+/run/current-system/sw/bin/mkdir -p /var/run/cdi"
         "+/run/current-system/sw/bin/nvidia-ctk cdi generate --output=/var/run/cdi/nvidia-container-toolkit.json"
-        "+/run/current-system/sw/bin/sleep 5"
+
+        # 3. CRITICAL: Force the OS to flush the write to the disk/RAM
+        "+/run/current-system/sw/bin/sync"
+        "+/run/current-system/sw/bin/sleep 2"
       ];
     };
   };
