@@ -3,6 +3,8 @@ services:
   ollama:
     image: ollama/ollama
     container_name: ollama
+    tty: true
+    stdin_open: true
     volumes:
       - "/opt/appdata/apps/ollama:/root/.ollama"
     ports:
