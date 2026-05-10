@@ -14,19 +14,21 @@
     efi.canTouchEfiVariables = true;
   };
 
-# MODIFIED: Let's make the dependency more robust
   systemd.services.docker = {
-    # If nvidia-util.service is missing, we use the more generic nvidia-control-devices
     after = [ "network.target" "containerd.service" ];
-    # Only require the toolkit if it exists, otherwise use a generic check
     wants = [ "nvidia-container-toolkit.service" ];
 
     serviceConfig = {
-        ExecStartPre = [
-            "+${pkgs.coreutils}/bin/sleep 5"
-            "+${pkgs.bash}/bin/bash -c 'while [ ! -e /dev/nvidia0 ]; do sleep 1; done'"
-            ];
-        };
+      ExecStartPre = [
+        # 1. Wait for the device node
+        "+${pkgs.bash}/bin/bash -c 'while [ ! -e /dev/nvidia0 ]; do sleep 1; done'"
+        # 2. Wait for nvidia-smi to successfully talk to the GPU
+        # This ensures the driver is fully initialized and out of a 'busy' state
+        "+${pkgs.bash}/bin/bash -c 'until ${config.boot.kernelPackages.nvidiaPackages.stable}/bin/nvidia-smi; do sleep 1; done'"
+        # 3. Final buffer for CDI file generation
+        "+${pkgs.coreutils}/bin/sleep 5"
+      ];
+    };
   };
 
   virtualisation.docker.enable = true;

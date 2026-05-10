@@ -3,17 +3,11 @@ services:
   ollama:
     image: ollama/ollama
     container_name: ollama
-    entrypoint: ["/bin/sh", "-c", "sleep 30 && /bin/ollama serve"]
     volumes:
       - "/opt/appdata/apps/ollama:/root/.ollama"
     ports:
       - 11434:11434
     deploy:
-      # restart_policy:
-      #         condition: on-failure
-      #         delay: 5s
-      #         max_attempts: 10
-      #         window: 120s
       resources:
         reservations:
           devices:
