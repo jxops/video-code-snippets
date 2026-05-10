@@ -22,20 +22,20 @@
     ];
     wants = [ "nvidia-container-toolkit.service" ];
 
-    serviceConfig = {
-      ExecStartPre = [
-        # 1. Wait for the driver to be alive
-        "+/run/current-system/sw/bin/bash -c 'until /run/current-system/sw/bin/nvidia-smi; do sleep 1; done'"
+    # This is the magic line: it prevents the service from starting
+    # until the file we are about to create actually exists.
+    unitConfig = {
+      ConditionPathExists = "/var/run/cdi/nvidia-container-toolkit.json";
+    };
 
-        # 2. Force the exact JSON generation your system expects
+    serviceConfig = {
+      # We use '+' to run as root and bypass any restrictions
+      ExecStartPre = [
+        "+/run/current-system/sw/bin/bash -c 'until /run/current-system/sw/bin/nvidia-smi; do sleep 1; done'"
         "+/run/current-system/sw/bin/mkdir -p /var/run/cdi"
         "+/run/current-system/sw/bin/nvidia-ctk cdi generate --output=/var/run/cdi/nvidia-container-toolkit.json"
-
-        # 3. Double-check for the YAML variant just in case Docker looks for both
-        "+/run/current-system/sw/bin/nvidia-ctk cdi generate --output=/var/run/cdi/nvidia.yaml"
-
-        # 4. Final settling time
-        "+/run/current-system/sw/bin/sleep 5"
+        # Give the kernel a moment to catch up with the filesystem write
+        "+/run/current-system/sw/bin/sleep 2"
       ];
     };
   };
