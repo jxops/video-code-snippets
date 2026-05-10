@@ -15,28 +15,28 @@
   };
 
   systemd.services.docker = {
+    # 1. Strict ordering: Docker MUST wait for the toolkit service
     after = [
       "network.target"
       "containerd.service"
       "nvidia-container-toolkit.service"
     ];
-    wants = [ "nvidia-container-toolkit.service" ];
-
-    # This is the magic line: it prevents the service from starting
-    # until the file we are about to create actually exists.
-    unitConfig = {
-      ConditionPathExists = "/var/run/cdi/nvidia-container-toolkit.json";
-    };
+    requires = [ "nvidia-container-toolkit.service" ];
 
     serviceConfig = {
-      # We use '+' to run as root and bypass any restrictions
+      # 2. Instead of generating files, we just ensure the driver is ready
+      # and give the toolkit a few seconds to populate /var/run/cdi naturally.
       ExecStartPre = [
         "+/run/current-system/sw/bin/bash -c 'until /run/current-system/sw/bin/nvidia-smi; do sleep 1; done'"
-        "+/run/current-system/sw/bin/mkdir -p /var/run/cdi"
-        "+/run/current-system/sw/bin/nvidia-ctk cdi generate --output=/var/run/cdi/nvidia-container-toolkit.json"
-        # Give the kernel a moment to catch up with the filesystem write
-        "+/run/current-system/sw/bin/sleep 2"
+        "+/run/current-system/sw/bin/sleep 5"
       ];
+    };
+  };
+
+  # 3. Ensure the toolkit is actually configured to support CDI
+  virtualisation.docker.daemon.settings = {
+    features = {
+      cdi = true;
     };
   };
 
