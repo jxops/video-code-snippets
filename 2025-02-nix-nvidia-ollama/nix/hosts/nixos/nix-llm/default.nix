@@ -75,8 +75,8 @@
       Type = "oneshot";
       RemainAfterExit = true;
       # Hard-reset the containers on every boot to clear 'Exit 128' state
-      ExecStart = "${pkgs.docker-compose}/bin/docker-compose -f /root/video-code-snippets/2025-02-nix-nvidia-ollama/nix/compose.yaml up -d";
-      ExecStop = "${pkgs.docker-compose}/bin/docker-compose -f /root/video-code-snippets/2025-02-nix-nvidia-ollama/nix/compose.yaml down";
+      ExecStart = "${pkgs.docker-compose}/bin/docker-compose -f /root/compose.yaml up -d";
+      ExecStop = "${pkgs.docker-compose}/bin/docker-compose -f /root/compose.yaml down";
     };
   };
 
