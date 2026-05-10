@@ -14,35 +14,42 @@
     efi.canTouchEfiVariables = true;
   };
 
+  # 1. Disable the socket to prevent "trigger-happy" starts
+  virtualisation.docker.enable = true;
+  virtualisation.docker.listenOptions = []; # This helps disable socket activation quirks
+
   systemd.services.docker = {
-    after = [ "network.target" "containerd.service" ];
+    # 2. Make Docker wait for the hardware and the specialized init script
+    after = [ "network.target" "containerd.service" "nvidia-persistenced.service" ];
+    wants = [ "nvidia-persistenced.service" ];
+
     serviceConfig = {
+      # 3. Increase the Start Limit - if it fails, try again automatically
+      StartLimitIntervalSec = 60;
+      StartLimitBurst = 3;
+      Restart = "on-failure";
+      RestartSec = "5s";
+
       ExecStartPre = let
         initScript = pkgs.writeShellScript "docker-nvidia-init" ''
-          # 1. Wait for the NVIDIA device node to actually appear in /dev
-          # This is the key change for cold boots!
-          count=0
-          while [ ! -e /dev/nvidia0 ] && [ $count -lt 30 ]; do
-            echo "Waiting for /dev/nvidia0..."
+          # Wait longer and more aggressively for the GPU
+          for i in {1..30}; do
+            if [ -e /dev/nvidia0 ]; then break; fi
+            echo "Waiting for GPU... $i"
             sleep 1
-            count=$((count + 1))
           done
 
-          # 2. Setup CDI
-          ${pkgs.coreutils}/bin/mkdir -p /etc/cdi
-          ${pkgs.coreutils}/bin/rm -f /etc/cdi/*
-
-          # 3. Generate the spec
+          # Clean and Generate
+          mkdir -p /etc/cdi
+          rm -f /etc/cdi/*
           ${pkgs.nvidia-container-toolkit}/bin/nvidia-ctk cdi generate \
             --format=json \
             --nvidia-ctk-path=${pkgs.nvidia-container-toolkit}/bin/nvidia-ctk \
-            --output=/etc/cdi/nvidia.json || true
+            --output=/etc/cdi/nvidia.json
         '';
       in [ "+${initScript}" ];
     };
   };
-
-  virtualisation.docker.enable = true;
 
   # Network configuration
   networking = {
