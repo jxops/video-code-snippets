@@ -26,6 +26,9 @@ services:
     networks:
       - ai-stack
     restart: always
+    command: serve
+    environment:
+      - OLLAMA_HOST=0.0.0.0
 
   openwebui:
     image: ghcr.io/open-webui/open-webui:main
