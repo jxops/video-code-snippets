@@ -17,7 +17,6 @@
   systemd.services.docker = {
     after = [ "network.target" "containerd.service" ];
 
-    # This environment variable forces Docker to look in our custom directory
     environment = {
       CDI_SPEC_DIRS = "/etc/cdi";
     };
@@ -25,20 +24,16 @@
     serviceConfig = {
       ExecStartPre = [
         "+/run/current-system/sw/bin/bash -c 'until /run/current-system/sw/bin/nvidia-smi; do sleep 1; done'"
-
-        # 1. Ensure the directory exists
         "+/run/current-system/sw/bin/mkdir -p /etc/cdi"
 
-        # 2. Generate the spec with JSON format explicitly defined
-        # We use /etc/cdi/nvidia.json as a stable, persistent home.
-        "+/run/current-system/sw/bin/nvidia-ctk cdi generate --format=json --output=/etc/cdi/nvidia.json"
-
-        # 3. Create the symlink to the location we know Docker straced, just for double coverage
-        "+/run/current-system/sw/bin/mkdir -p /var/run/cdi"
-        "+/run/current-system/sw/bin/ln -sf /etc/cdi/nvidia.json /var/run/cdi/nvidia-container-toolkit.json"
+        # We explicitly tell the generator where the 'nvidia-ctk' binary is in the Nix store.
+        # This replaces the broken '/usr/bin/nvidia-ctk' paths in the JSON.
+        "+/run/current-system/sw/bin/bash -c '/run/current-system/sw/bin/nvidia-ctk cdi generate \
+          --format=json \
+          --nvidia-ctk-path=$(readlink -f /run/current-system/sw/bin/nvidia-ctk) \
+          --output=/etc/cdi/nvidia.json'"
 
         "+/run/current-system/sw/bin/sync"
-        "+/run/current-system/sw/bin/sleep 2"
       ];
     };
   };
